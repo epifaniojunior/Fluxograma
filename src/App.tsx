@@ -17,15 +17,17 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { 
   X, Droplets, Gauge, Waves, Beaker, Ban, Activity, 
-  FileText, Copy, Droplet, Trash2, Plus, Zap, ArrowDown, MoveRight, Layers, Download, Upload, Clock, Database, ShieldAlert, Cloud, CloudOff, RefreshCw
+  FileText, Copy, Droplet, Trash2, Plus, Zap, ArrowDown, MoveRight, Layers, Download, Upload, Clock, Database, ShieldAlert, Cloud, CloudOff, RefreshCw, FileDown
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
+import { toPng, toCanvas } from 'html-to-image';
+import { jsPDF } from 'jspdf';
 
 // ==========================================
 // CONFIGURAÇÃO DE VERSÃO DE DESENVOLVIMENTO
 // ==========================================
-const DEV_VERSION = 'v1.4.1'; 
-const STORAGE_KEY = 'fluxo_agua_v81_deso';
+const DEV_VERSION = 'v1.4.7'; 
+const STORAGE_KEY = 'fluxo_agua_v87_deso';
 
 const globalStyles = `
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -33,7 +35,7 @@ const globalStyles = `
   .react-flow__edge-path { stroke-linecap: round; transition: stroke 0.3s, stroke-width 0.3s; stroke-width: 4; }
   .react-flow__edge.selected .react-flow__edge-path { stroke-width: 6; stroke: #1e293b !important; }
   .react-flow__edge-text { fill: #1e293b; font-size: 13px; font-weight: 800; pointer-events: none; }
-  .react-flow__edge-textbg { fill: #ffffff; fill-opacity: 0.9; rx: 6; ry: 6; }
+  .react-flow__edge-textbg { fill: white !important; fill-opacity: 1 !important; }
   .react-flow__handle { width: 8px !important; height: 8px !important; background: #cbd5e1 !important; border: 2px solid white !important; }
   .react-flow__selection { background: rgba(37, 99, 235, 0.1); border: 1px solid #2563eb; }
   @keyframes glowPulse {
@@ -41,7 +43,58 @@ const globalStyles = `
     70% { box-shadow: 0 0 0 12px rgba(59, 130, 246, 0); }
     100% { box-shadow: 0 0 0 0px rgba(59, 130, 246, 0); }
   }
+  @keyframes searchHighlight {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+  }
   .node-selected-pulse { animation: glowPulse 2s infinite; border-color: #3b82f6 !important; }
+  .node-search-highlight { animation: searchHighlight 1.5s infinite ease-in-out; z-index: 1000 !important; }
+  
+  .search-input-container {
+    position: relative;
+    margin-bottom: 12px;
+  }
+  .search-input-container input {
+    width: 100%;
+    padding: 8px 12px 8px 32px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    font-size: 12px;
+    outline: none;
+    transition: all 0.2s;
+  }
+  .search-input-container input:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+  }
+  .search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+  }
+  .search-clear-btn {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+  .search-clear-btn:hover {
+    color: #ef4444;
+    background: #fee2e2;
+  }
 `;
 
 // Função auxiliar para gerar ID único (UUID)
@@ -61,10 +114,14 @@ const NodeCustomizado = memo(({ data, selected }: any) => {
     'Macromedidor': <Gauge size={14} />, 'Armazenamento': <Droplets size={14} />, 
     'Descarte': <Ban size={14} />, 'Iguá': <Droplet size={14} fill="white" /> 
   };
+  
+  const isHighlighted = data.highlighted;
+
   return (
-    <div className={selected ? 'node-selected-pulse' : ''} style={{ 
-      background: '#fff', borderRadius: '14px', border: selected ? `2px solid ${data.cor}` : '1px solid #e2e8f0',
-      width: '210px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
+    <div className={`${selected ? 'node-selected-pulse' : ''} ${isHighlighted ? 'node-search-highlight' : ''}`} style={{ 
+      background: '#fff', borderRadius: '14px', border: selected ? `2px solid ${data.cor}` : (isHighlighted ? '3px solid #f59e0b' : '1px solid #e2e8f0'),
+      width: '210px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: isHighlighted ? '0 0 15px rgba(245, 158, 11, 0.5)' : '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+      transition: 'all 0.3s ease'
     }}>
       <div style={{ background: data.cor, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '10px', color: 'white' }}>
         {icons[data.tipo] || <Activity size={14} />}
@@ -92,6 +149,8 @@ const FlowContent = () => {
   const [supabaseError, setSupabaseError] = useState<string | null>(null);
   const [supabaseConfigured] = useState(() => isSupabaseConfigured());
   const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  const [termoPesquisaProjetos, setTermoPesquisaProjetos] = useState('');
+  const [termoPesquisaElementos, setTermoPesquisaElementos] = useState('');
 
   const nodesRef = useRef(nodes);
   const edgesRef = useRef(edges);
@@ -296,11 +355,109 @@ const FlowContent = () => {
     return () => clearTimeout(timer);
   }, [nodes, edges, salvarNoSupabase]);
 
+  const projetoAtivo = projetos.find(p => p.id === projetoAtivoId);
+
+  const exportarPDF = useCallback(async () => {
+    const flowElement = document.querySelector('.react-flow') as HTMLElement;
+    if (!flowElement) return;
+
+    setSyncStatus('syncing');
+    addDebugLog('Gerando PDF...');
+
+    try {
+      // Ocultar controles e painéis para o print
+      const controls = document.querySelector('.react-flow__controls') as HTMLElement;
+      const attribution = document.querySelector('.react-flow__attribution') as HTMLElement;
+      const panelRight = document.querySelector('.react-flow__panel.top-right') as HTMLElement;
+      
+      if (controls) controls.style.display = 'none';
+      if (attribution) attribution.style.display = 'none';
+      if (panelRight) panelRight.style.display = 'none';
+
+      // Forçar estilos de segurança nos labels antes da captura
+      const labels = flowElement.querySelectorAll('.react-flow__edge-textbg');
+      labels.forEach(l => {
+        (l as any).style.fill = 'white';
+        (l as any).style.fillOpacity = '1';
+        (l as any).setAttribute('fill', 'white');
+        (l as any).setAttribute('fill-opacity', '1');
+      });
+
+      // Delay para estabilização do DOM e renderização dos estilos
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Captura usando toPng com configurações de compatibilidade
+      const dataUrl = await toPng(flowElement, {
+        backgroundColor: '#f8fafc',
+        pixelRatio: 2,
+        cacheBust: true,
+        style: {
+          transform: 'scale(1)',
+        }
+      });
+
+      // Restaura a interface
+      if (controls) controls.style.display = 'flex';
+      if (attribution) attribution.style.display = 'block';
+      if (panelRight) panelRight.style.display = 'block';
+
+      const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'px',
+        format: [flowElement.offsetWidth, flowElement.offsetHeight]
+      });
+
+      pdf.addImage(dataUrl, 'PNG', 0, 0, flowElement.offsetWidth, flowElement.offsetHeight);
+      pdf.save(`fluxograma-${projetoAtivo?.nome || 'projeto'}.pdf`);
+      
+      addDebugLog('PDF gerado com sucesso!');
+      setSyncStatus('synced');
+    } catch (error) {
+      console.error('Erro ao exportar PDF:', error);
+      addDebugLog('Erro ao gerar PDF');
+      setSyncStatus('error');
+    }
+  }, [projetoAtivo, addDebugLog]);
+
   const fecharPainel = useCallback(() => {
     setSelecionado(null);
     setNodes(nds => nds.map(n => ({ ...n, selected: false })));
     setEdges(eds => eds.map(e => ({ ...e, selected: false })));
   }, [setNodes, setEdges]);
+
+  // Filtragem de projetos (Pesquisa Global em todos os sistemas e elementos)
+  const projetosFiltrados = useMemo(() => {
+    if (!termoPesquisaProjetos.trim()) return projetos;
+    const termo = termoPesquisaProjetos.toLowerCase();
+    return projetos.filter(p => {
+      // 1. Verifica no nome do projeto
+      if (p.nome.toLowerCase().includes(termo)) return true;
+      
+      // 2. Verifica em todos os nós deste projeto
+      const nodes = p.nodes || [];
+      return nodes.some((n: any) => {
+        const matchLabel = n.data?.label?.toLowerCase().includes(termo);
+        const matchDetalhes = n.data?.detalhes?.toLowerCase().includes(termo);
+        const matchNodeId = n.data?.nodeId?.toLowerCase().includes(termo);
+        return matchLabel || matchDetalhes || matchNodeId;
+      });
+    });
+  }, [projetos, termoPesquisaProjetos]);
+
+  // Efeito para destacar nós que correspondem à pesquisa de elementos
+  useEffect(() => {
+    if (!termoPesquisaElementos.trim()) {
+      setNodes(nds => nds.map(n => ({ ...n, data: { ...n.data, highlighted: false } })));
+      return;
+    }
+    const termo = termoPesquisaElementos.toLowerCase();
+    setNodes(nds => nds.map(n => {
+      const matchLabel = n.data.label?.toLowerCase().includes(termo);
+      const matchDetalhes = n.data.detalhes?.toLowerCase().includes(termo);
+      const matchNodeId = n.data.nodeId?.toLowerCase().includes(termo);
+      return { ...n, data: { ...n.data, highlighted: matchLabel || matchDetalhes || matchNodeId } };
+    }));
+  }, [termoPesquisaElementos, setNodes]);
 
   const excluirSelecaoTotal = useCallback(async () => {
     deleteElements({ nodes: nodesSelecionados, edges: edgesSelecionadas });
@@ -508,8 +665,6 @@ const FlowContent = () => {
     }
   };
 
-  const projetoAtivo = projetos.find(p => p.id === projetoAtivoId);
-
   return (
     <div style={{ width: '100vw', height: '100vh', display: 'flex', overflow: 'hidden' }}>
       <style>{globalStyles}</style>
@@ -570,8 +725,12 @@ const FlowContent = () => {
 
         {/* LISTA DE SISTEMAS (SCROLLABLE) */}
         <div style={{ flexGrow: 1, overflowY: 'auto', padding: '10px 16px' }}>
-          <p style={labelSmall}>Sistemas Ativos</p>
-          {projetos.map(p => (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <p style={labelSmall}>Sistemas Ativos</p>
+            <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 600 }}>{projetosFiltrados.length}</span>
+          </div>
+
+          {projetosFiltrados.map(p => (
             <div key={p.id} onClick={() => {
               if (projetoAtivoId !== p.id) {
                 // Salva o estado atual antes de trocar
@@ -709,7 +868,25 @@ const FlowContent = () => {
                 {syncStatus === 'syncing' ? 'Sincronizando...' : syncStatus === 'synced' ? 'Nuvem OK' : 'Erro de Conexão'}
               </span>
             </div>
+            <div className="search-input-container" style={{ marginBottom: 0, width: '300px' }}>
+              <Activity size={14} className="search-icon" />
+              <input 
+                type="text" 
+                placeholder="Pesquisa Geral (Sistemas e Equipamentos)..." 
+                value={termoPesquisaProjetos}
+                onChange={(e) => setTermoPesquisaProjetos(e.target.value)}
+                style={{ background: '#f8fafc', paddingRight: '30px' }}
+              />
+              {termoPesquisaProjetos && (
+                <button className="search-clear-btn" onClick={() => setTermoPesquisaProjetos('')} title="Limpar pesquisa">
+                  <X size={12} />
+                </button>
+              )}
+            </div>
             <button onClick={() => fitView({ duration: 800, padding: 0.4 })} style={btnSecundario}>Visão Geral</button>
+            <button onClick={exportarPDF} style={{...btnSecundario, borderColor: '#3b82f6', color: '#3b82f6'}}>
+              <FileDown size={14} style={{marginRight: '5px'}}/> Exportar PDF
+            </button>
             <button onClick={() => { 
               if (modoEdicao) {
                 salvarNoSupabase();
@@ -736,6 +913,25 @@ const FlowContent = () => {
           >
             <Background color="#cbd5e1" variant={BackgroundVariant.Dots} gap={20} />
             <Controls />
+
+            {/* PESQUISA NO FLUXOGRAMA (LOCAL) */}
+            <Panel position="top-right" style={{ marginTop: '20px', marginRight: modoEdicao ? '220px' : '20px' }}>
+              <div className="search-input-container" style={{ marginBottom: 0, width: '220px' }}>
+                <Zap size={14} className="search-icon" />
+                <input 
+                  type="text" 
+                  placeholder="Pesquisar neste fluxograma..." 
+                  value={termoPesquisaElementos}
+                  onChange={(e) => setTermoPesquisaElementos(e.target.value)}
+                  style={{ background: 'white', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', paddingRight: '30px' }}
+                />
+                {termoPesquisaElementos && (
+                  <button className="search-clear-btn" onClick={() => setTermoPesquisaElementos('')} title="Limpar pesquisa">
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+            </Panel>
 
             {modoEdicao && totalSelecionado > 1 && (
               <Panel position="bottom-center" style={{ marginBottom: '20px' }}>
