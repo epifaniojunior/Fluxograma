@@ -26,7 +26,7 @@ import { jsPDF } from 'jspdf';
 // ==========================================
 // CONFIGURAÇÃO DE VERSÃO DE DESENVOLVIMENTO
 // ==========================================
-const DEV_VERSION = 'v1.4.7'; 
+const DEV_VERSION = 'v1.5.4'; 
 const STORAGE_KEY = 'fluxo_agua_v87_deso';
 
 const globalStyles = `
@@ -686,34 +686,44 @@ const FlowContent = () => {
         
         {/* BOTÕES DE TOPO */}
         <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <button onClick={async () => {
-            const novo = { 
-              id: generateUUID(),
-              nome: 'NOVO PROJETO', 
-              nodes: [], 
-              edges: [],
-              updated_at: new Date().toISOString()
-            };
-            
-            try {
-              if (supabaseConfigured) {
-                const { data, error } = await supabase.from('projetos').insert([novo]).select();
-                if (error) throw error;
-                if (data && data.length > 0) {
-                  setProjetos(prev => [...prev, data[0]]);
-                  setProjetoAtivoId(data[0].id);
-                  addDebugLog(`Novo projeto criado: ${data[0].nome}`);
+          <button 
+            disabled={!modoEdicao}
+            onClick={async () => {
+              if (!modoEdicao) return;
+              const novo = { 
+                id: generateUUID(),
+                nome: 'NOVO PROJETO', 
+                nodes: [], 
+                edges: [],
+                updated_at: new Date().toISOString()
+              };
+              
+              try {
+                if (supabaseConfigured) {
+                  const { data, error } = await supabase.from('projetos').insert([novo]).select();
+                  if (error) throw error;
+                  if (data && data.length > 0) {
+                    setProjetos(prev => [...prev, data[0]]);
+                    setProjetoAtivoId(data[0].id);
+                    addDebugLog(`Novo projeto criado: ${data[0].nome}`);
+                  }
+                } else {
+                  setProjetos(prev => [...prev, novo]);
+                  setProjetoAtivoId(novo.id);
+                  addDebugLog(`Novo projeto local criado`);
                 }
-              } else {
-                setProjetos(prev => [...prev, novo]);
-                setProjetoAtivoId(novo.id);
-                addDebugLog(`Novo projeto local criado`);
+              } catch (err: any) {
+                addDebugLog(`ERRO ao criar projeto: ${err.message}`);
+                alert(`Erro ao criar novo projeto: ${err.message}`);
               }
-            } catch (err: any) {
-              addDebugLog(`ERRO ao criar projeto: ${err.message}`);
-              alert(`Erro ao criar novo projeto: ${err.message}`);
-            }
-          }} style={btnNovoProjeto}>
+            }} 
+            style={{ 
+              ...btnNovoProjeto, 
+              opacity: modoEdicao ? 1 : 0.5, 
+              cursor: modoEdicao ? 'pointer' : 'not-allowed',
+              filter: modoEdicao ? 'none' : 'grayscale(0.5)'
+            }}
+          >
             <Plus size={14} /> + Novo Projeto
           </button>
           
@@ -888,6 +898,13 @@ const FlowContent = () => {
               <FileDown size={14} style={{marginRight: '5px'}}/> Exportar PDF
             </button>
             <button onClick={() => { 
+              if (!modoEdicao) {
+                const isMobile = window.innerWidth <= 768;
+                if (isMobile) {
+                  alert("O Modo Edição não está disponível em dispositivos móveis para garantir a precisão do fluxograma.");
+                  return;
+                }
+              }
               if (modoEdicao) {
                 salvarNoSupabase();
               }
