@@ -26,7 +26,7 @@ import { jsPDF } from 'jspdf';
 // ==========================================
 // CONFIGURAÇÃO DE VERSÃO DE DESENVOLVIMENTO
 // ==========================================
-const DEV_VERSION = 'v2.0.55'; 
+const DEV_VERSION = 'v2.0.56'; 
 const STORAGE_KEY = 'fluxo_agua_v88_deso';
 
 const globalStyles = `
@@ -464,7 +464,7 @@ const FlowContent = () => {
     
     if (!flowElement || !viewportElement || nodes.length === 0) return;
 
-    addDebugLog('Iniciando exportação PDF (v2.0.55 - Precisão Cirúrgica)...');
+    addDebugLog('Iniciando exportação PDF (v2.0.56 - Precisão Cirúrgica)...');
     setSyncStatus('syncing');
 
     // 1. CALCULAR ÁREA REAL DOS NÓS (Bounding Box exata)
@@ -582,11 +582,41 @@ const FlowContent = () => {
 
       pdf.addImage(dataUrl, 'PNG', x, y, imgW, imgH, undefined, 'FAST');
 
-      // 7. SALVAR
+      // 7. LEGENDA (Parte Inferior Central)
+      const legendW = 100;
+      const legendH = 12;
+      const legendX = (pageWidth - legendW) / 2;
+      const legendY = pageHeight - legendH - 5;
+
+      // Fundo da legenda
+      pdf.setDrawColor(226, 232, 240); // #e2e8f0
+      pdf.setFillColor(255, 255, 255);
+      pdf.rect(legendX, legendY, legendW, legendH, 'FD');
+
+      // Título da Legenda
+      pdf.setFontSize(8);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(100, 116, 139); // #64748b
+      pdf.text('LEGENDA DE TUBULAÇÕES:', legendX + 5, legendY + 7.5);
+
+      // Item 1: Gravidade (Azul)
+      pdf.setDrawColor(59, 130, 246); // #3b82f6
+      pdf.setLineWidth(1.5);
+      pdf.line(legendX + 45, legendY + 7, legendX + 52, legendY + 7);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(15, 23, 42);
+      pdf.text('GRAVIDADE', legendX + 54, legendY + 7.5);
+
+      // Item 2: Bombeada (Vermelho)
+      pdf.setDrawColor(239, 68, 68); // #ef4444
+      pdf.line(legendX + 75, legendY + 7, legendX + 82, legendY + 7);
+      pdf.text('BOMBEADA', legendX + 84, legendY + 7.5);
+
+      // 8. SALVAR
       const timestamp = gerarTimestamp();
       pdf.save(`fluxograma-${projetoAtivo?.nome || 'projeto'}-${timestamp}.pdf`);
       
-      addDebugLog('PDF v2.0.55 gerado com sucesso (Precisão Cirúrgica)!');
+      addDebugLog('PDF v2.0.56 gerado com sucesso (Precisão Cirúrgica)!');
       setSyncStatus('synced');
     } catch (error) {
       console.error('Erro na exportação PDF:', error);
