@@ -26,7 +26,7 @@ import { jsPDF } from 'jspdf';
 // ==========================================
 // CONFIGURAÇÃO DE VERSÃO DE DESENVOLVIMENTO
 // ==========================================
-const DEV_VERSION = 'v2.0.54'; 
+const DEV_VERSION = 'v2.0.55'; 
 const STORAGE_KEY = 'fluxo_agua_v88_deso';
 
 const globalStyles = `
@@ -179,7 +179,7 @@ const FlowContent = () => {
   const [termoPesquisaProjetos, setTermoPesquisaProjetos] = useState('');
   const [termoPesquisaElementos, setTermoPesquisaElementos] = useState('');
   const [shiftPressed, setShiftPressed] = useState(false);
-  const [ordenacao, setOrdenacao] = useState<'nome' | 'data'>('data');
+  const [ordenacao, setOrdenacao] = useState<'nome' | 'data'>('nome');
   const [showModalNovo, setShowModalNovo] = useState(false);
   
   // Função robusta para detectar se é um dispositivo móvel
@@ -464,7 +464,7 @@ const FlowContent = () => {
     
     if (!flowElement || !viewportElement || nodes.length === 0) return;
 
-    addDebugLog('Iniciando exportação PDF (v2.0.54 - Precisão Cirúrgica)...');
+    addDebugLog('Iniciando exportação PDF (v2.0.55 - Precisão Cirúrgica)...');
     setSyncStatus('syncing');
 
     // 1. CALCULAR ÁREA REAL DOS NÓS (Bounding Box exata)
@@ -586,7 +586,7 @@ const FlowContent = () => {
       const timestamp = gerarTimestamp();
       pdf.save(`fluxograma-${projetoAtivo?.nome || 'projeto'}-${timestamp}.pdf`);
       
-      addDebugLog('PDF v2.0.54 gerado com sucesso (Precisão Cirúrgica)!');
+      addDebugLog('PDF v2.0.55 gerado com sucesso (Precisão Cirúrgica)!');
       setSyncStatus('synced');
     } catch (error) {
       console.error('Erro na exportação PDF:', error);
@@ -1100,18 +1100,6 @@ const FlowContent = () => {
               {/* OPÇÕES DE ORDENAÇÃO */}
               <div style={{ display: 'flex', gap: '6px', marginBottom: '16px' }}>
                 <button 
-                  onClick={() => setOrdenacao('data')}
-                  style={{
-                    ...btnMiniSort,
-                    background: ordenacao === 'data' ? '#eff6ff' : '#f8fafc',
-                    color: ordenacao === 'data' ? '#2563eb' : '#64748b',
-                    borderColor: ordenacao === 'data' ? '#dbeafe' : '#e2e8f0',
-                    padding: '8px'
-                  }}
-                >
-                  <Clock size={12} style={{marginRight: '6px'}}/> Recentes
-                </button>
-                <button 
                   onClick={() => setOrdenacao('nome')}
                   style={{
                     ...btnMiniSort,
@@ -1122,6 +1110,18 @@ const FlowContent = () => {
                   }}
                 >
                   <Activity size={12} style={{marginRight: '6px'}}/> A-Z
+                </button>
+                <button 
+                  onClick={() => setOrdenacao('data')}
+                  style={{
+                    ...btnMiniSort,
+                    background: ordenacao === 'data' ? '#eff6ff' : '#f8fafc',
+                    color: ordenacao === 'data' ? '#2563eb' : '#64748b',
+                    borderColor: ordenacao === 'data' ? '#dbeafe' : '#e2e8f0',
+                    padding: '8px'
+                  }}
+                >
+                  <Clock size={12} style={{marginRight: '6px'}}/> Recentes
                 </button>
               </div>
 
