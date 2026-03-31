@@ -26,7 +26,7 @@ import { jsPDF } from 'jspdf';
 // ==========================================
 // CONFIGURAÇÃO DE VERSÃO DE DESENVOLVIMENTO
 // ==========================================
-const DEV_VERSION = 'v2.0.65'; 
+const DEV_VERSION = 'v2.0.66'; 
 const STORAGE_KEY = 'fluxo_agua_v88_deso';
 
 const globalStyles = `
@@ -165,7 +165,7 @@ const NodeCustomizado = memo(({ data, selected }: any) => {
       <div style={{ padding: '12px', background: 'white', textAlign: 'center', borderTop: '1px solid #f1f5f9', minHeight: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
         <div style={{ fontSize: '12px', fontWeight: 700, color: '#334155', textTransform: 'uppercase' }}>{data.nodeId || ""}</div>
         
-        {(data.tipo === 'Tratamento' || data.tipo === 'Captação') && (data.concessionaria || data.uc || data.medidor) && (
+        {(data.tipo === 'Tratamento' || data.tipo === 'Captação' || data.tipo === 'Armazenamento') && (data.concessionaria || data.uc || data.medidor) && (
           <>
             <div style={{ width: '100%', height: '1px', background: '#94a3b8', margin: '4px 0' }} />
             <div style={{ fontSize: '10px', color: '#334155', textAlign: 'left', width: '100%', display: 'flex', flexDirection: 'column', gap: '2px', textTransform: 'uppercase', fontWeight: 700 }}>
@@ -1687,7 +1687,7 @@ const FlowContent = () => {
                   setNodes(nds => nds.map(n => n.id === selecionado.id ? { ...n, data: { ...n.data, nodeId: val } } : n));
                 }} />
               </div>
-              {(selecionado.data.tipo === 'Tratamento' || selecionado.data.tipo === 'Captação') && (
+              {(selecionado.data.tipo === 'Tratamento' || selecionado.data.tipo === 'Captação' || selecionado.data.tipo === 'Armazenamento') && (
                 <>
                   <div>
                     <label style={labelSmall}>Concessionária</label>
