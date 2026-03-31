@@ -26,7 +26,7 @@ import { jsPDF } from 'jspdf';
 // ==========================================
 // CONFIGURAÇÃO DE VERSÃO DE DESENVOLVIMENTO
 // ==========================================
-const DEV_VERSION = 'v2.0.66'; 
+const DEV_VERSION = 'v2.0.67'; 
 const STORAGE_KEY = 'fluxo_agua_v88_deso';
 
 const globalStyles = `
@@ -215,6 +215,7 @@ const FlowContent = () => {
   const [isLandscape, setIsLandscape] = useState(window.innerWidth > window.innerHeight);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [nomeNovoProjeto, setNomeNovoProjeto] = useState('');
+  const [bulkDetalhesTemp, setBulkDetalhesTemp] = useState('');
   const [erroModal, setErroModal] = useState('');
   const [modalConfig, setModalConfig] = useState<{
     show: boolean;
@@ -857,7 +858,7 @@ const FlowContent = () => {
     }));
   }, [setEdges]);
 
-  const updateBulkNodes = useCallback((changes: any) => {
+  const updateBulkNodes = useCallback((changes: any, append = false) => {
     setNodes(nds => nds.map(n => {
       if (n.selected) {
         let newNode = { ...n };
@@ -868,7 +869,11 @@ const FlowContent = () => {
           newNode.data = { ...newNode.data, nodeId: changes.nodeId };
         }
         if (changes.detalhes !== undefined) {
-          newNode.data = { ...newNode.data, detalhes: changes.detalhes };
+          const textoExistente = newNode.data.detalhes || '';
+          const novoTexto = append 
+            ? (textoExistente ? textoExistente + '\n' + changes.detalhes : changes.detalhes)
+            : changes.detalhes;
+          newNode.data = { ...newNode.data, detalhes: novoTexto };
         }
         if (changes.concessionaria !== undefined) {
           newNode.data = { ...newNode.data, concessionaria: changes.concessionaria };
@@ -1633,8 +1638,26 @@ const FlowContent = () => {
                   </div>
 
                   <div>
-                    <label style={labelSmall}>Detalhes em Massa</label>
-                    <textarea style={{ ...inputStyle, height: '80px', resize: 'none', padding: '10px' }} placeholder="Alterar todos os detalhes para..." disabled={!modoEdicao} onChange={(e) => updateBulkNodes({ detalhes: e.target.value })} />
+                    <label style={labelSmall}>Adicionar Texto Adicional (Detalhes)</label>
+                    <textarea 
+                      style={{ ...inputStyle, height: '80px', resize: 'none', padding: '10px' }} 
+                      placeholder="Texto para adicionar ao final de todos os selecionados..." 
+                      disabled={!modoEdicao} 
+                      value={bulkDetalhesTemp}
+                      onChange={(e) => setBulkDetalhesTemp(e.target.value)} 
+                    />
+                    <button 
+                      onClick={() => {
+                        if (!bulkDetalhesTemp.trim()) return;
+                        updateBulkNodes({ detalhes: bulkDetalhesTemp }, true);
+                        setBulkDetalhesTemp('');
+                        mostrarAviso("Edição em Massa", "Texto adicionado com sucesso aos nós selecionados.");
+                      }}
+                      disabled={!modoEdicao || !bulkDetalhesTemp.trim()}
+                      style={{ ...btnBackupOp, width: '100%', marginTop: '8px', background: '#f0f9ff', borderColor: '#bae6fd', color: '#0369a1' }}
+                    >
+                      <Plus size={14} /> Adicionar aos Selecionados
+                    </button>
                   </div>
                   
                   <div>
