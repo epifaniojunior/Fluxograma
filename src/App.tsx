@@ -26,7 +26,7 @@ import { jsPDF } from 'jspdf';
 // ==========================================
 // CONFIGURAÇÃO DE VERSÃO DE DESENVOLVIMENTO
 // ==========================================
-const DEV_VERSION = 'v2.0.67'; 
+const DEV_VERSION = 'v2.0.68'; 
 const STORAGE_KEY = 'fluxo_agua_v88_deso';
 
 const globalStyles = `
@@ -488,12 +488,24 @@ const FlowContent = () => {
     
     if (!flowElement || !viewportElement || nodes.length === 0) return;
 
-    addDebugLog('Iniciando exportação PDF (v2.0.56 - Precisão Cirúrgica)...');
+    addDebugLog('Iniciando exportação PDF (v2.0.68 - Cobertura Total)...');
     setSyncStatus('syncing');
 
-    // 1. CALCULAR ÁREA REAL DOS NÓS (Bounding Box exata)
-    const nodesRect = getRectOfNodes(nodes);
-    const padding = 80; 
+    // 1. CALCULAR ÁREA REAL DOS NÓS (Bounding Box Robusta)
+    // Usamos as dimensões medidas (measured) se disponíveis, com fallback para valores padrão do CSS
+    const minX = Math.min(...nodes.map(n => n.position.x));
+    const minY = Math.min(...nodes.map(n => n.position.y));
+    const maxX = Math.max(...nodes.map(n => n.position.x + ((n as any).measured?.width || n.width || 210)));
+    const maxY = Math.max(...nodes.map(n => n.position.y + ((n as any).measured?.height || n.height || 180)));
+    
+    const nodesRect = {
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY
+    };
+
+    const padding = 120; // Aumentado para garantir que setas e bordas não cortem
     const captureWidth = nodesRect.width + padding * 2;
     const captureHeight = nodesRect.height + padding * 2;
 
@@ -519,14 +531,20 @@ const FlowContent = () => {
       .react-flow__node [style*="font-size: 12px"] { font-size: 14px !important; }
     `;
 
-    // 3. MANIPULAÇÃO TEMPORÁRIA DO VIEWPORT PARA CAPTURA PERFEITA
+    // 3. MANIPULAÇÃO TEMPORÁRIA DO VIEWPORT E CONTAINER PARA CAPTURA PERFEITA
     const originalTransform = viewportElement.style.transform;
+    const originalWidth = flowElement.style.width;
+    const originalHeight = flowElement.style.height;
 
     try {
+      // Forçamos o container a ter o tamanho da captura para evitar cortes pelo overflow do container pai
+      flowElement.style.width = `${captureWidth}px`;
+      flowElement.style.height = `${captureHeight}px`;
+
       // Forçamos o viewport a se alinhar EXATAMENTE no início do retângulo dos nós
       viewportElement.style.transform = `translate(${-nodesRect.x + padding}px, ${-nodesRect.y + padding}px) scale(1)`;
       
-      // Forçar espessura das linhas diretamente no DOM antes da captura (html-to-image não suporta onclone)
+      // Forçar espessura das linhas diretamente no DOM antes da captura
       const originalEdgeStyles: { el: SVGPathElement, strokeWidth: string, stroke: string }[] = [];
       const edgePaths = flowElement.querySelectorAll('.react-flow__edge-path');
       edgePaths.forEach(path => {
@@ -539,8 +557,8 @@ const FlowContent = () => {
         p.setAttribute('stroke-width', '6');
       });
 
-      // Aguardar renderização dos estilos e transform
-      await new Promise(resolve => setTimeout(resolve, 1200));
+      // Aguardar renderização dos estilos e transform (tempo aumentado para segurança)
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
       // 4. CAPTURAR
       const dataUrl = await toPng(flowElement, {
@@ -561,6 +579,8 @@ const FlowContent = () => {
 
       // 5. RESTAURAR ESTADOS ORIGINAIS
       viewportElement.style.transform = originalTransform;
+      flowElement.style.width = originalWidth;
+      flowElement.style.height = originalHeight;
       if (styleEl) styleEl.innerHTML = '';
 
       // 6. GERAR PDF A4 LANDSCAPE
@@ -640,11 +660,13 @@ const FlowContent = () => {
       const timestamp = gerarTimestamp();
       pdf.save(`fluxograma-${projetoAtivo?.nome || 'projeto'}-${timestamp}.pdf`);
       
-      addDebugLog('PDF v2.0.56 gerado com sucesso (Precisão Cirúrgica)!');
+      addDebugLog('PDF v2.0.68 gerado com sucesso (Cobertura Total)!');
       setSyncStatus('synced');
     } catch (error) {
       console.error('Erro na exportação PDF:', error);
       viewportElement.style.transform = originalTransform;
+      flowElement.style.width = originalWidth;
+      flowElement.style.height = originalHeight;
       if (styleEl) styleEl.innerHTML = '';
       setSyncStatus('error');
       alert('Erro ao gerar PDF. Tente novamente.');
