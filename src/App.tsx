@@ -26,7 +26,7 @@ import { jsPDF } from 'jspdf';
 // ==========================================
 // CONFIGURAÇÃO DE VERSÃO DE DESENVOLVIMENTO
 // ==========================================
-const DEV_VERSION = 'v2.0.73'; 
+const DEV_VERSION = 'v2.0.74'; 
 const STORAGE_KEY = 'fluxo_agua_v88_deso';
 
 const globalStyles = `
@@ -1784,7 +1784,6 @@ const FlowContent = () => {
                         if (!bulkDetalhesTemp.trim()) return;
                         updateBulkNodes({ detalhes: bulkDetalhesTemp }, true);
                         setBulkDetalhesTemp('');
-                        mostrarAviso("Edição em Massa", "Texto adicionado com sucesso aos nós selecionados.");
                       }}
                       disabled={!modoEdicao || !bulkDetalhesTemp.trim()}
                       style={{ ...btnBackupOp, width: '100%', marginTop: '8px', background: '#f0f9ff', borderColor: '#bae6fd', color: '#0369a1' }}
