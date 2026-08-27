@@ -12,11 +12,11 @@ import React, { useState, useCallback, useEffect, memo, useMemo, useRef } from '
 import ReactFlow, { 
   useNodesState, useEdgesState, addEdge, Panel, Background, Controls,
   Handle, Position, ConnectionMode, useReactFlow, ReactFlowProvider, BackgroundVariant,
-  MarkerType, SelectionMode, getRectOfNodes
+  MarkerType, SelectionMode, getRectOfNodes, NodeResizer
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { 
-  X, Droplets, Gauge, Waves, Beaker, Ban, Activity, 
+  X, Droplets, Gauge, Waves, Beaker, Ban, Activity, Square,
   FileText, Copy, Droplet, Trash2, Plus, Zap, ArrowDown, MoveRight, Layers, Download, Upload, Clock, Database, ShieldAlert, Cloud, CloudOff, RefreshCw, FileDown, Printer, Folder, ChevronRight, ChevronDown
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
@@ -26,7 +26,7 @@ import { jsPDF } from 'jspdf';
 // ==========================================
 // CONFIGURAÇÃO DE VERSÃO DE DESENVOLVIMENTO
 // ==========================================
-const DEV_VERSION = 'v2.0.75'; 
+const DEV_VERSION = 'v2.0.84'; 
 const STORAGE_KEY = 'fluxo_agua_v88_deso';
 
 const globalStyles = `
@@ -145,9 +145,9 @@ const generateUUID = () => {
 
 const NodeCustomizado = memo(({ data, selected }: any) => {
   const icons: any = { 
-    'Captação': <Waves size={14} />, 'Tratamento': <Beaker size={14} />, 
-    'Macromedidor': <Gauge size={14} />, 'Armazenamento': <Droplets size={14} />, 
-    'Descarte': <Ban size={14} />, 'Iguá': <Droplet size={14} fill="white" /> 
+    'Captação': <Waves size={16} />, 'Tratamento': <Beaker size={16} />, 
+    'Macromedidor': <Gauge size={16} />, 'Armazenamento': <Droplets size={16} />, 
+    'Descarte': <Ban size={16} />, 'Iguá': <Droplet size={16} fill="white" /> 
   };
   
   const isHighlighted = data.highlighted;
@@ -155,20 +155,20 @@ const NodeCustomizado = memo(({ data, selected }: any) => {
   return (
     <div className={`${selected ? 'node-selected-pulse' : ''} ${isHighlighted ? 'node-search-highlight' : ''}`} style={{ 
       background: '#fff', borderRadius: '14px', border: selected ? `2px solid ${data.cor}` : (isHighlighted ? '3px solid #f59e0b' : '1px solid #e2e8f0'),
-      width: '210px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: isHighlighted ? '0 0 15px rgba(245, 158, 11, 0.5)' : '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+      width: '230px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: isHighlighted ? '0 0 15px rgba(245, 158, 11, 0.5)' : '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
       transition: 'all 0.3s ease'
     }}>
-      <div style={{ background: data.cor, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '10px', color: 'white' }}>
-        {icons[data.tipo] || <Activity size={14} />}
-        <div style={{ fontWeight: 600, fontSize: '10px', textTransform: 'uppercase' }}>{data.label}</div>
+      <div style={{ background: data.cor, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '10px', color: 'white' }}>
+        {icons[data.tipo] || <Activity size={16} />}
+        <div style={{ fontWeight: 700, fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.3px' }}>{data.label}</div>
       </div>
-      <div style={{ padding: '12px', background: 'white', textAlign: 'center', borderTop: '1px solid #f1f5f9', minHeight: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-        <div style={{ fontSize: '12px', fontWeight: 700, color: '#334155', textTransform: 'uppercase' }}>{data.nodeId || ""}</div>
+      <div style={{ padding: '14px', background: 'white', textAlign: 'center', borderTop: '1px solid #f1f5f9', minHeight: '50px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+        <div style={{ fontSize: '15px', fontWeight: 700, color: '#1e293b', textTransform: 'uppercase' }}>{data.nodeId || ""}</div>
         
         {(data.tipo === 'Tratamento' || data.tipo === 'Captação' || data.tipo === 'Armazenamento') && (data.concessionaria || data.uc || data.medidor) && (
           <>
-            <div style={{ width: '100%', height: '1px', background: '#94a3b8', margin: '4px 0' }} />
-            <div style={{ fontSize: '10px', color: '#334155', textAlign: 'left', width: '100%', display: 'flex', flexDirection: 'column', gap: '2px', textTransform: 'uppercase', fontWeight: 700 }}>
+            <div style={{ width: '100%', height: '1.5px', background: '#e2e8f0', margin: '6px 0' }} />
+            <div style={{ fontSize: '12px', color: '#475569', textAlign: 'left', width: '100%', display: 'flex', flexDirection: 'column', gap: '3px', textTransform: 'uppercase', fontWeight: 700 }}>
               {data.concessionaria && <div>Css. {data.concessionaria}</div>}
               {data.uc && <div>UC {data.uc}</div>}
               {data.medidor && <div>Med. {data.medidor}</div>}
@@ -182,7 +182,40 @@ const NodeCustomizado = memo(({ data, selected }: any) => {
   );
 });
 
-const nodeTypes = { custom: NodeCustomizado };
+const NodeArea = memo(({ data, selected }: any) => {
+  return (
+    <div style={{
+      width: '100%',
+      height: '100%',
+      border: `3px dashed ${data.cor || '#94a3b8'}`,
+      borderRadius: '16px',
+      background: selected ? 'rgba(241, 245, 249, 0.4)' : 'rgba(248, 250, 252, 0.2)',
+      display: 'flex',
+      flexDirection: 'column',
+      padding: '15px',
+      transition: 'background 0.3s ease'
+    }}>
+      <NodeResizer minWidth={150} minHeight={150} isVisible={selected} lineClassName="border-blue-400" handleClassName="h-4 w-4 bg-white border-2 border-blue-500 rounded-full" />
+      <div style={{ 
+        fontSize: '16px', 
+        fontWeight: 900, 
+        color: data.cor || '#64748b', 
+        textTransform: 'uppercase', 
+        marginBottom: '10px',
+        userSelect: 'none',
+        pointerEvents: 'none'
+      }}>
+        {data.label}
+      </div>
+      <div style={{ flex: 1, pointerEvents: 'none' }} />
+    </div>
+  );
+});
+
+const nodeTypes = { 
+  custom: NodeCustomizado,
+  area: NodeArea
+};
 
 const FlowContent = () => {
   const [projetos, setProjetos] = useState<any[]>([]);
@@ -636,35 +669,52 @@ const FlowContent = () => {
 
       pdf.addImage(dataUrl, 'PNG', x, y, imgW, imgH, undefined, 'FAST');
 
-      // 7. LEGENDA (Parte Inferior Central)
-      const legendW = 100;
-      const legendH = 12;
-      const legendX = (pageWidth - legendW) / 2;
-      const legendY = pageHeight - legendH - 5;
-
-      // Fundo da legenda
+      // 7. LEGENDA E NOTAS (Parte Inferior)
+      const footerY = pageHeight - 15;
+      
+      // Legenda à esquerda
+      const legendW = 85;
+      const legendX = margin;
+      
       pdf.setDrawColor(226, 232, 240); // #e2e8f0
       pdf.setFillColor(255, 255, 255);
-      pdf.rect(legendX, legendY, legendW, legendH, 'FD');
-
-      // Título da Legenda
-      pdf.setFontSize(8);
+      pdf.rect(legendX, footerY, legendW, 10, 'FD');
+      
+      pdf.setFontSize(7);
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(100, 116, 139); // #64748b
-      pdf.text('LEGENDA DE TUBULAÇÕES:', legendX + 5, legendY + 7.5);
-
+      pdf.text('LEGENDA:', legendX + 3, footerY + 6.5);
+      
       // Item 1: Gravidade (Azul)
       pdf.setDrawColor(59, 130, 246); // #3b82f6
-      pdf.setLineWidth(1.5);
-      pdf.line(legendX + 45, legendY + 7, legendX + 52, legendY + 7);
+      pdf.setLineWidth(1);
+      pdf.line(legendX + 18, footerY + 6, legendX + 25, footerY + 6);
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(15, 23, 42);
-      pdf.text('GRAVIDADE', legendX + 54, legendY + 7.5);
-
+      pdf.text('GRAVIDADE', legendX + 27, footerY + 6.5);
+      
       // Item 2: Bombeada (Vermelho)
       pdf.setDrawColor(239, 68, 68); // #ef4444
-      pdf.line(legendX + 75, legendY + 7, legendX + 82, legendY + 7);
-      pdf.text('BOMBEADA', legendX + 84, legendY + 7.5);
+      pdf.line(legendX + 48, footerY + 6, legendX + 55, footerY + 6);
+      pdf.text('BOMBEADA', legendX + 57, footerY + 6.5);
+
+      // Notas à direita (apenas se houver texto)
+      if (projetoAtivo?.notas_rodape && projetoAtivo.notas_rodape.trim()) {
+        const notesW = 90;
+        const notesX = pageWidth - margin - notesW;
+        
+        // Fundo das notas
+        pdf.setDrawColor(226, 232, 240);
+        pdf.setFillColor(255, 255, 255);
+        pdf.rect(notesX, footerY - 5, notesW, 15, 'FD'); // Altura um pouco maior para notas
+        
+        pdf.setFontSize(7);
+        pdf.setTextColor(51, 65, 85);
+        pdf.setFont('helvetica', 'normal');
+        
+        const splitNotes = pdf.splitTextToSize(projetoAtivo.notas_rodape.toUpperCase(), notesW - 6);
+        pdf.text(splitNotes, notesX + 3, footerY - 1);
+      }
 
       // 8. SALVAR
       const timestamp = gerarTimestamp();
@@ -766,10 +816,14 @@ const FlowContent = () => {
     const spacing = 25;
     const currentOffset = (nodeOffsetRef.current % 10) * spacing;
     
+    const isArea = tipo === 'Area';
+    
     const newNode = {
-      id, type: 'custom', 
+      id, 
+      type: isArea ? 'area' : 'custom', 
       position: { x: 450 + currentOffset, y: 250 + currentOffset }, 
-      data: { label, nodeId: '', detalhes: '', tipo, cor },
+      data: { label, nodeId: isArea ? 'ÁREA' : '', detalhes: '', tipo, cor },
+      ...(isArea ? { style: { width: 500, height: 400 }, zIndex: -1 } : {})
     };
     
     nodeOffsetRef.current += 1;
@@ -1453,11 +1507,6 @@ const FlowContent = () => {
                       <ShieldAlert size={13} color="#ef4444" /> Restaurar
                     </button>
                   </div>
-                  {supabaseConfigured && (
-                    <button onClick={sincronizarTudoComNuvem} style={{...btnBackupOp, background: '#f0fdf4', borderColor: '#bbf7d0', color: '#166534'}} title="Sincronizar tudo com a nuvem">
-                      <RefreshCw size={13} color="#16a34a" /> Sincronizar com Nuvem
-                    </button>
-                  )}
                 </div>
                 <input type="file" ref={globalBackupRef} onChange={restaurarBackupGlobal} accept=".json" style={{ display: 'none' }} />
               </div>
@@ -1465,7 +1514,7 @@ const FlowContent = () => {
 
             {/* CONSOLE DE DEPURAÇÃO - Oculto no Mobile */}
             {!isMobileView && (
-              <div style={{ padding: '12px', borderTop: '1px solid #f1f5f9', background: '#1e293b', color: '#94a3b8', fontSize: '9px', fontFamily: 'monospace', maxHeight: '150px', overflowY: 'auto' }}>
+              <div style={{ padding: '12px', borderTop: '1px solid #f1f5f9', background: '#1e293b', color: '#94a3b8', fontSize: '9px', fontFamily: 'monospace', height: '250px', flexShrink: 0, marginBottom: '15px', overflowY: 'auto' }}>
                 <p style={{ color: '#3b82f6', fontWeight: 800, marginBottom: '5px', fontSize: '10px' }}>LOG DE SINCRONIZAÇÃO</p>
                 {debugLogs.length === 0 ? (
                   <p>Nenhuma atividade registrada.</p>
@@ -1591,9 +1640,24 @@ const FlowContent = () => {
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
-                width: '100%'
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px'
               }}>
                 {projetoAtivo?.nome}
+                <span style={{ 
+                  fontSize: '9px', 
+                  background: '#eff6ff', 
+                  color: '#3b82f6', 
+                  padding: '2px 8px', 
+                  borderRadius: '100px',
+                  border: '1px solid #dbeafe',
+                  fontWeight: 800,
+                  flexShrink: 0
+                }}>
+                  {DEV_VERSION}
+                </span>
               </h1>
             )}
           </div>
@@ -1636,16 +1700,31 @@ const FlowContent = () => {
               </button>
             )}
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              {syncStatus === 'syncing' && <RefreshCw size={14} className="animate-spin" color="#3b82f6" />}
-              {syncStatus === 'synced' && <Cloud size={14} color="#10b981" />}
-              {syncStatus === 'error' && <CloudOff size={14} color="#ef4444" />}
-              {!isMobileView && (
-                <span style={{ fontSize: '10px', fontWeight: 700, color: syncStatus === 'error' ? '#ef4444' : '#64748b' }}>
-                  {syncStatus === 'syncing' ? 'Sincronizando...' : syncStatus === 'synced' ? 'Nuvem OK' : 'Erro'}
+            {!isMobileView && supabaseConfigured && (
+              <button 
+                onClick={sincronizarTudoComNuvem} 
+                disabled={syncStatus !== 'synced'}
+                style={{
+                  ...btnSecundario, 
+                  borderColor: syncStatus === 'synced' ? '#10b981' : (syncStatus === 'error' ? '#ef4444' : '#bae6fd'),
+                  color: syncStatus === 'synced' ? '#10b981' : (syncStatus === 'error' ? '#ef4444' : '#0ea5e9'),
+                  background: syncStatus === 'synced' ? '#f0fdf4' : (syncStatus === 'error' ? '#fef2f2' : '#f0f9ff'),
+                  whiteSpace: 'nowrap',
+                  opacity: syncStatus === 'synced' ? 1 : 0.7,
+                  cursor: syncStatus === 'synced' ? 'pointer' : 'not-allowed',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                {syncStatus === 'syncing' && <RefreshCw size={14} className="animate-spin" />}
+                {syncStatus === 'synced' && <Cloud size={14} />}
+                {syncStatus === 'error' && <CloudOff size={14} />}
+                <span>
+                  {syncStatus === 'syncing' ? 'Sincronizando...' : syncStatus === 'synced' ? 'Nuvem OK' : 'Erro na Nuvem'}
                 </span>
-              )}
-            </div>
+              </button>
+            )}
           </div>
         </div>
 
@@ -1698,6 +1777,89 @@ const FlowContent = () => {
               </Panel>
             )}
 
+            {/* RODAPÉ: LEGENDA E NOTAS */}
+            <Panel position="bottom-left" style={{ 
+              marginBottom: '20px', 
+              marginLeft: '20px', 
+              width: isMobileView ? 'auto' : (selecionado ? 'calc(100% - 360px)' : 'calc(100% - 40px)'),
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'flex-end',
+              pointerEvents: 'none',
+              transition: 'width 0.3s ease'
+            }}>
+              <div style={{ 
+                background: 'white', 
+                padding: '10px 16px', 
+                borderRadius: '12px', 
+                border: '1px solid #e2e8f0',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '15px',
+                pointerEvents: 'auto'
+              }}>
+                <span style={{ fontSize: '10px', fontWeight: 800, color: '#64748b', letterSpacing: '0.5px' }}>LEGENDA:</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ width: '20px', height: '3px', background: '#3b82f6', borderRadius: '2px' }} />
+                  <span style={{ fontSize: '10px', fontWeight: 700, color: '#1e293b' }}>GRAVIDADE</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ width: '20px', height: '3px', background: '#ef4444', borderRadius: '2px' }} />
+                  <span style={{ fontSize: '10px', fontWeight: 700, color: '#1e293b' }}>BOMBEADA</span>
+                </div>
+              </div>
+
+              {!isMobileView && (
+                <div style={{ pointerEvents: 'auto' }}>
+                  <textarea
+                    placeholder="Notas e observações do projeto..."
+                    value={projetoAtivo?.notas_rodape || ''}
+                    onChange={(e) => {
+                      const val = e.target.value.toUpperCase();
+                      setProjetos(prev => prev.map(p => p.id === projetoAtivoId ? { ...p, notas_rodape: val } : p));
+                    }}
+                    style={{
+                      width: '300px',
+                      height: '60px',
+                      padding: '10px 14px',
+                      borderRadius: '12px',
+                      border: '1px solid #e2e8f0',
+                      background: 'white',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                      fontSize: '11px',
+                      fontWeight: 500,
+                      color: '#475569',
+                      resize: 'none',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+              )}
+            </Panel>
+
+            {modoEdicao && !isMobileView && (
+              <Panel position="bottom-center" style={{ marginBottom: '20px' }}>
+                <div style={{ 
+                  background: 'rgba(30, 41, 59, 0.8)', 
+                  backdropFilter: 'blur(4px)',
+                  padding: '8px 16px', 
+                  borderRadius: '100px', 
+                  color: 'white',
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                  pointerEvents: 'none'
+                }}>
+                  <Layers size={14} />
+                  DICA: SEGURE <span style={{ color: '#60a5fa', fontWeight: 800 }}>CTRL + CLIQUE + ARRASTE</span> PARA SELECIONAR MÚLTIPLOS
+                </div>
+              </Panel>
+            )}
+
             {modoEdicao && (
               <Panel position="top-right" style={{ marginTop: '20px', marginRight: '20px' }}>
                 <div style={panelComponents}>
@@ -1708,6 +1870,8 @@ const FlowContent = () => {
                   <button onClick={() => adicionarNo('Macromedidor', 'Macromedidor', '#10b981')} style={btnComp}><Gauge size={14}/> Macromedidor</button>
                   <button onClick={() => adicionarNo('Iguá', 'Iguá', '#1e40af')} style={btnComp}><Droplet size={14}/> Iguá</button>
                   <button onClick={() => adicionarNo('Descarte', 'Descarte', '#ef4444')} style={btnComp}><Ban size={14}/> Descarte</button>
+                  <div style={{ width: '100%', height: '1px', background: '#e2e8f0', margin: '4px 0' }} />
+                  <button onClick={() => adicionarNo('Area', 'Área de Agrupamento', '#64748b')} style={{ ...btnComp, background: '#f1f5f9', border: '1px dashed #cbd5e1' }}><Square size={14}/> Área Livre</button>
                 </div>
               </Panel>
             )}
