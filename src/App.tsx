@@ -12,11 +12,11 @@ import React, { useState, useCallback, useEffect, memo, useMemo, useRef } from '
 import ReactFlow, { 
   useNodesState, useEdgesState, addEdge, Panel, Background, Controls,
   Handle, Position, ConnectionMode, useReactFlow, ReactFlowProvider, BackgroundVariant,
-  MarkerType, SelectionMode, getRectOfNodes
+  MarkerType, SelectionMode, getRectOfNodes, NodeResizer
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { 
-  X, Droplets, Gauge, Waves, Beaker, Ban, Activity, 
+  X, Droplets, Gauge, Waves, Beaker, Ban, Activity, Square,
   FileText, Copy, Droplet, Trash2, Plus, Zap, ArrowDown, MoveRight, Layers, Download, Upload, Clock, Database, ShieldAlert, Cloud, CloudOff, RefreshCw, FileDown, Printer, Folder, ChevronRight, ChevronDown
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
@@ -26,7 +26,7 @@ import { jsPDF } from 'jspdf';
 // ==========================================
 // CONFIGURAÇÃO DE VERSÃO DE DESENVOLVIMENTO
 // ==========================================
-const DEV_VERSION = 'v2.0.75'; 
+const DEV_VERSION = 'v2.0.76'; 
 const STORAGE_KEY = 'fluxo_agua_v88_deso';
 
 const globalStyles = `
@@ -145,9 +145,9 @@ const generateUUID = () => {
 
 const NodeCustomizado = memo(({ data, selected }: any) => {
   const icons: any = { 
-    'Captação': <Waves size={14} />, 'Tratamento': <Beaker size={14} />, 
-    'Macromedidor': <Gauge size={14} />, 'Armazenamento': <Droplets size={14} />, 
-    'Descarte': <Ban size={14} />, 'Iguá': <Droplet size={14} fill="white" /> 
+    'Captação': <Waves size={16} />, 'Tratamento': <Beaker size={16} />, 
+    'Macromedidor': <Gauge size={16} />, 'Armazenamento': <Droplets size={16} />, 
+    'Descarte': <Ban size={16} />, 'Iguá': <Droplet size={16} fill="white" /> 
   };
   
   const isHighlighted = data.highlighted;
@@ -155,20 +155,20 @@ const NodeCustomizado = memo(({ data, selected }: any) => {
   return (
     <div className={`${selected ? 'node-selected-pulse' : ''} ${isHighlighted ? 'node-search-highlight' : ''}`} style={{ 
       background: '#fff', borderRadius: '14px', border: selected ? `2px solid ${data.cor}` : (isHighlighted ? '3px solid #f59e0b' : '1px solid #e2e8f0'),
-      width: '210px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: isHighlighted ? '0 0 15px rgba(245, 158, 11, 0.5)' : '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+      width: '230px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: isHighlighted ? '0 0 15px rgba(245, 158, 11, 0.5)' : '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
       transition: 'all 0.3s ease'
     }}>
-      <div style={{ background: data.cor, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '10px', color: 'white' }}>
-        {icons[data.tipo] || <Activity size={14} />}
-        <div style={{ fontWeight: 600, fontSize: '10px', textTransform: 'uppercase' }}>{data.label}</div>
+      <div style={{ background: data.cor, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '10px', color: 'white' }}>
+        {icons[data.tipo] || <Activity size={16} />}
+        <div style={{ fontWeight: 700, fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.3px' }}>{data.label}</div>
       </div>
-      <div style={{ padding: '12px', background: 'white', textAlign: 'center', borderTop: '1px solid #f1f5f9', minHeight: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-        <div style={{ fontSize: '12px', fontWeight: 700, color: '#334155', textTransform: 'uppercase' }}>{data.nodeId || ""}</div>
+      <div style={{ padding: '14px', background: 'white', textAlign: 'center', borderTop: '1px solid #f1f5f9', minHeight: '50px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+        <div style={{ fontSize: '15px', fontWeight: 800, color: '#1e293b', textTransform: 'uppercase' }}>{data.nodeId || ""}</div>
         
         {(data.tipo === 'Tratamento' || data.tipo === 'Captação' || data.tipo === 'Armazenamento') && (data.concessionaria || data.uc || data.medidor) && (
           <>
-            <div style={{ width: '100%', height: '1px', background: '#94a3b8', margin: '4px 0' }} />
-            <div style={{ fontSize: '10px', color: '#334155', textAlign: 'left', width: '100%', display: 'flex', flexDirection: 'column', gap: '2px', textTransform: 'uppercase', fontWeight: 700 }}>
+            <div style={{ width: '100%', height: '1.5px', background: '#e2e8f0', margin: '6px 0' }} />
+            <div style={{ fontSize: '12px', color: '#475569', textAlign: 'left', width: '100%', display: 'flex', flexDirection: 'column', gap: '3px', textTransform: 'uppercase', fontWeight: 700 }}>
               {data.concessionaria && <div>Css. {data.concessionaria}</div>}
               {data.uc && <div>UC {data.uc}</div>}
               {data.medidor && <div>Med. {data.medidor}</div>}
@@ -182,7 +182,40 @@ const NodeCustomizado = memo(({ data, selected }: any) => {
   );
 });
 
-const nodeTypes = { custom: NodeCustomizado };
+const NodeArea = memo(({ data, selected }: any) => {
+  return (
+    <div style={{
+      width: '100%',
+      height: '100%',
+      border: `3px dashed ${data.cor || '#94a3b8'}`,
+      borderRadius: '16px',
+      background: selected ? 'rgba(241, 245, 249, 0.4)' : 'rgba(248, 250, 252, 0.2)',
+      display: 'flex',
+      flexDirection: 'column',
+      padding: '15px',
+      transition: 'background 0.3s ease'
+    }}>
+      <NodeResizer minWidth={150} minHeight={150} isVisible={selected} lineClassName="border-blue-400" handleClassName="h-4 w-4 bg-white border-2 border-blue-500 rounded-full" />
+      <div style={{ 
+        fontSize: '16px', 
+        fontWeight: 900, 
+        color: data.cor || '#64748b', 
+        textTransform: 'uppercase', 
+        marginBottom: '10px',
+        userSelect: 'none',
+        pointerEvents: 'none'
+      }}>
+        {data.label}
+      </div>
+      <div style={{ flex: 1, pointerEvents: 'none' }} />
+    </div>
+  );
+});
+
+const nodeTypes = { 
+  custom: NodeCustomizado,
+  area: NodeArea
+};
 
 const FlowContent = () => {
   const [projetos, setProjetos] = useState<any[]>([]);
@@ -766,10 +799,14 @@ const FlowContent = () => {
     const spacing = 25;
     const currentOffset = (nodeOffsetRef.current % 10) * spacing;
     
+    const isArea = tipo === 'Area';
+    
     const newNode = {
-      id, type: 'custom', 
+      id, 
+      type: isArea ? 'area' : 'custom', 
       position: { x: 450 + currentOffset, y: 250 + currentOffset }, 
-      data: { label, nodeId: '', detalhes: '', tipo, cor },
+      data: { label, nodeId: isArea ? 'ÁREA' : '', detalhes: '', tipo, cor },
+      ...(isArea ? { style: { width: 500, height: 400 }, zIndex: -1 } : {})
     };
     
     nodeOffsetRef.current += 1;
@@ -1708,6 +1745,8 @@ const FlowContent = () => {
                   <button onClick={() => adicionarNo('Macromedidor', 'Macromedidor', '#10b981')} style={btnComp}><Gauge size={14}/> Macromedidor</button>
                   <button onClick={() => adicionarNo('Iguá', 'Iguá', '#1e40af')} style={btnComp}><Droplet size={14}/> Iguá</button>
                   <button onClick={() => adicionarNo('Descarte', 'Descarte', '#ef4444')} style={btnComp}><Ban size={14}/> Descarte</button>
+                  <div style={{ width: '100%', height: '1px', background: '#e2e8f0', margin: '4px 0' }} />
+                  <button onClick={() => adicionarNo('Area', 'Área de Agrupamento', '#64748b')} style={{ ...btnComp, background: '#f1f5f9', border: '1px dashed #cbd5e1' }}><Square size={14}/> Área Livre</button>
                 </div>
               </Panel>
             )}
